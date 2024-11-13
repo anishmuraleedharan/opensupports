@@ -68,19 +68,19 @@ jobs:
 
             # Create and configure Apache virtual host
             sudo tee /etc/apache2/sites-available/000-default.conf > /dev/null <<APACHECONF
-                <VirtualHost *:80>
-                    ServerAdmin webmaster@localhost
-                    DocumentRoot /var/www/html
-                    Alias /opensupports /var/www/opensupports
-                    <Directory /var/www/opensupports>
-                        Options Indexes FollowSymLinks
-                        AllowOverride All
-                        Require all granted
-                    </Directory>
-                    ErrorLog ${APACHE_LOG_DIR}/error.log
-                    CustomLog ${APACHE_LOG_DIR}/access.log combined
-                </VirtualHost>
-              APACHECONF
+            <VirtualHost *:80>
+                ServerAdmin webmaster@localhost
+                DocumentRoot /var/www/html
+                Alias /opensupports /var/www/opensupports
+                <Directory /var/www/opensupports>
+                    Options Indexes FollowSymLinks
+                    AllowOverride All
+                    Require all granted
+                </Directory>
+                ErrorLog ${APACHE_LOG_DIR}/error.log
+                CustomLog ${APACHE_LOG_DIR}/access.log combined
+            </VirtualHost>
+            APACHECONF
 
             # Enable Apache modules and restart service
             sudo a2enmod alias rewrite
