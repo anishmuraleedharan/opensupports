@@ -59,6 +59,7 @@ jobs:
 
             # Configure config.php with database credentials
             CONFIG_FILE=/var/www/opensupports/server/config.php
+            sudo mkdir -p /var/www/opensupports/server
             sudo touch $CONFIG_FILE
             echo '<?php' | sudo tee $CONFIG_FILE
             echo 'define("MYSQL_HOST", "${DB_HOST}");' | sudo tee -a $CONFIG_FILE
