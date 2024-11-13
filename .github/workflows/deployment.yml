@@ -51,7 +51,7 @@ jobs:
 
             # Download and unzip OpenSupports
             curl -L https://github.com/opensupports/opensupports/releases/download/v4.11.0/opensupports_v4.11.0.zip -o opensupports.zip
-            unzip -o opensupports.zip -d /var/www/opensupports
+            unzip -oqq opensupports.zip -d /var/www/opensupports
 
             # Set permissions for Apache
             sudo chown -R www-data:www-data /var/www/opensupports
@@ -60,6 +60,7 @@ jobs:
             # Configure config.php with database credentials
             CONFIG_FILE=/var/www/opensupports/server/config.php
             sudo mkdir -p /var/www/opensupports/server
+            sudo ls /var/www/opensupports
             sudo touch $CONFIG_FILE
             echo '<?php' | sudo tee $CONFIG_FILE
             echo 'define("MYSQL_HOST", "${DB_HOST}");' | sudo tee -a $CONFIG_FILE
