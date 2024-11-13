@@ -58,10 +58,8 @@ jobs:
             sudo chmod -R 755 /var/www/opensupports
 
             # Configure config.php with database credentials
-            CONFIG_FILE=/var/www/opensupports/server/config.php
             sudo mkdir -p /var/www/opensupports/server
-            sudo ls /var/www/opensupports
-            sudo touch $CONFIG_FILE
+            sudo touch /var/www/opensupports/server/config.php
             echo '<?php' | sudo tee $CONFIG_FILE
             echo 'define("MYSQL_HOST", "${DB_HOST}");' | sudo tee -a $CONFIG_FILE
             echo 'define("MYSQL_USER", "${DB_USER}");' | sudo tee -a $CONFIG_FILE
