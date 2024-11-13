@@ -1,7 +1,6 @@
 name: Deploy OpenSupports App to EC2
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
@@ -119,7 +118,7 @@ jobs:
           "
 
           # Run deployment commands on EC2 instance
-          ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
+          ssh -v -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
 
       - name: Verify Deployment
         run: |
