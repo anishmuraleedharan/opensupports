@@ -14,14 +14,14 @@ jobs:
 
     env:
       APP_ENV: ${{ github.ref_name }}
-      DB_HOST: ${{ secrets.DB_HOST }}
-      DB_PORT: 3306
-      DB_USER: ${{ secrets.DB_USER }}
-      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-      DB_NAME: support
-      ADMIN_USER: ${{ secrets.ADMIN_USER }}
-      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      
+      # Set environment-specific secrets based on the branch
+      DB_HOST: ${{ github.ref_name == 'main' && secrets.PROD_DB_HOST || github.ref_name == 'staging' && secrets.STAGING_DB_HOST || github.ref_name == 'develop' && secrets.DEV_DB_HOST }}
+      DB_USER: ${{ github.ref_name == 'main' && secrets.PROD_DB_USER || github.ref_name == 'staging' && secrets.STAGING_DB_USER || github.ref_name == 'develop' && secrets.DEV_DB_USER }}
+      DB_PASSWORD: ${{ github.ref_name == 'main' && secrets.PROD_DB_PASSWORD || github.ref_name == 'staging' && secrets.STAGING_DB_PASSWORD || github.ref_name == 'develop' && secrets.DEV_DB_PASSWORD }}
+      ADMIN_USER: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_USER || github.ref_name == 'staging' && secrets.STAGING_ADMIN_USER || github.ref_name == 'develop' && secrets.DEV_ADMIN_USER }}
+      ADMIN_PASSWORD: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_PASSWORD || github.ref_name == 'staging' && secrets.STAGING_ADMIN_PASSWORD || github.ref_name == 'develop' && secrets.DEV_ADMIN_PASSWORD }}
+      ADMIN_EMAIL: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_EMAIL || github.ref_name == 'staging' && secrets.STAGING_ADMIN_EMAIL || github.ref_name == 'develop' && secrets.DEV_ADMIN_EMAIL }}
 
     steps:
       - name: Checkout Code
@@ -30,12 +30,12 @@ jobs:
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.EC2_KEY }}
+          ssh-private-key: ${{ github.ref_name == 'main' && secrets.PROD_EC2_KEY || github.ref_name == 'staging' && secrets.STAGING_EC2_KEY || github.ref_name == 'develop' && secrets.DEV_EC2_KEY }}
 
       - name: Deploy to EC2
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ github.ref_name == 'main' && secrets.PROD_EC2_HOST || github.ref_name == 'staging' && secrets.STAGING_EC2_HOST || github.ref_name == 'develop' && secrets.DEV_EC2_HOST }}
+          EC2_USER: ${{ github.ref_name == 'main' && secrets.PROD_EC2_USER || github.ref_name == 'staging' && secrets.STAGING_EC2_USER || github.ref_name == 'develop' && secrets.DEV_EC2_USER }}
         run: |
           # Define remote commands for deployment
           REMOTE_COMMANDS="

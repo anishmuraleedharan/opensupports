@@ -144,11 +144,17 @@ Resources:
       Roles:
         - !Ref EC2InstanceRole
 
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Sub "${Environment}-app-instance-key"
+
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
       ImageId: !Ref AMI
+      KeyName: !Ref EC2KeyPair
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref ApplicationSecurityGroup
