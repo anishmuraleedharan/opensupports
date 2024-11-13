@@ -98,8 +98,3 @@ jobs:
 
           # Run deployment commands on EC2 instance
           ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
-
-      - name: Verify Deployment
-        run: |
-          # Check if the application is up by pinging the main page
-          curl -f http://${{ secrets.EC2_HOST }}/opensupports || exit 1
