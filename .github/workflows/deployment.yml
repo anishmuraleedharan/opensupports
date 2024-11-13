@@ -1,0 +1,126 @@
+name: Deploy OpenSupports App to EC2
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+
+jobs:
+  deploy:
+    name: Deploy OpenSupports to EC2
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: ${{ github.ref_name }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: 3306
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: support
+      ADMIN_USER: ${{ secrets.ADMIN_USER }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_KEY }}
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          # Define remote commands for deployment
+          REMOTE_COMMANDS="
+          # Install dependencies
+          sudo apt update -y && sudo apt install -y apache2 php php-mysql unzip curl;
+          sudo systemctl start apache2 && sudo systemctl enable apache2;
+
+          # Create application directory
+          sudo mkdir -p /var/www/opensupports;
+          sudo chown -R ${USER}:${USER} /var/www/opensupports;
+
+          # Download and unzip OpenSupports
+          curl -L https://github.com/opensupports/opensupports/releases/latest/download/opensupports.zip -o opensupports.zip;
+          unzip -o opensupports.zip -d /var/www/opensupports;
+
+          # Set permissions for Apache
+          sudo chown -R www-data:www-data /var/www/opensupports;
+          sudo chmod -R 755 /var/www/opensupports;
+
+          # Configure config.php with database credentials
+          CONFIG_FILE=/var/www/opensupports/server/config.php;
+          sudo touch $CONFIG_FILE;
+          echo '<?php' | sudo tee $CONFIG_FILE;
+          echo 'define(\"MYSQL_HOST\", \"${DB_HOST}\");' | sudo tee -a $CONFIG_FILE;
+          echo 'define(\"MYSQL_USER\", \"${DB_USER}\");' | sudo tee -a $CONFIG_FILE;
+          echo 'define(\"MYSQL_PASSWORD\", \"${DB_PASSWORD}\");' | sudo tee -a $CONFIG_FILE;
+          echo 'define(\"MYSQL_DATABASE\", \"${DB_NAME}\");' | sudo tee -a $CONFIG_FILE;
+
+          # Create and configure Apache virtual host
+          APACHE_CONF_FILE=/etc/apache2/sites-available/000-default.conf;
+          sudo tee $APACHE_CONF_FILE > /dev/null <<EOL
+          <VirtualHost *:80>
+              ServerAdmin webmaster@localhost
+              DocumentRoot /var/www/html
+
+              # Alias to serve OpenSupports from /opensupports
+              Alias /opensupports /var/www/opensupports
+
+              <Directory /var/www/opensupports>
+                  Options Indexes FollowSymLinks
+                  AllowOverride All
+                  Require all granted
+              </Directory>
+
+              # Enable URL rewriting for OpenSupports
+              <Directory /var/www/opensupports>
+                  RewriteEngine On
+                  RewriteBase /opensupports/
+                  
+                  # Rewrite rules to route requests as needed by OpenSupports
+                  RewriteCond %{REQUEST_FILENAME} !-f
+                  RewriteCond %{REQUEST_FILENAME} !-d
+                  RewriteRule ^(.*)$ index.php [L,QSA]
+              </Directory>
+
+              # Standard logging settings
+              ErrorLog ${APACHE_LOG_DIR}/error.log
+              CustomLog ${APACHE_LOG_DIR}/access.log combined
+          </VirtualHost>
+          EOL
+
+          # Enable necessary Apache modules
+          sudo a2enmod alias
+          sudo a2enmod rewrite
+
+          # Restart Apache to apply configuration changes
+          sudo systemctl restart apache2;
+
+          # Initialize the database by calling /system/init-database endpoint
+          curl -X POST 'http://localhost/opensupports/system/init-database' \
+            -d 'host=${DB_HOST}&user=${DB_USER}&password=${DB_PASSWORD}&database=${DB_NAME}';
+
+          # Set default system settings
+          curl -X POST 'http://localhost/opensupports/system/init-settings' \
+            -d 'site_name=OpenSupports&default_language=en';
+
+          # Initialize the admin account
+          curl -X POST 'http://localhost/opensupports/system/init-admin' \
+            -d 'username=${ADMIN_USER}&password=${ADMIN_PASSWORD}&email=${ADMIN_EMAIL}';
+          "
+
+          # Run deployment commands on EC2 instance
+          ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
+
+      - name: Verify Deployment
+        run: |
+          # Check if the application is up by pinging the main page
+          curl -f http://${{ secrets.EC2_HOST }}/opensupports || exit 1
