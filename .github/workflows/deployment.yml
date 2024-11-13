@@ -47,7 +47,6 @@ jobs:
             
             # Create application directory and set permissions
             sudo mkdir -p /var/www/opensupports
-            sudo chown -R ${USER}:${USER} /var/www/opensupports
 
             # Download and unzip OpenSupports
             curl -L https://github.com/opensupports/opensupports/releases/latest/download/opensupports.zip -o opensupports.zip
@@ -97,7 +96,7 @@ jobs:
           EOF
 
           # Run deployment commands on EC2 instance
-          ssh -v -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
+          ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
 
       - name: Verify Deployment
         run: |
