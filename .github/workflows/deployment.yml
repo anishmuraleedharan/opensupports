@@ -1,0 +1,100 @@
+name: Deploy OpenSupports App to EC2
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+      - develop
+
+jobs:
+  deploy:
+    name: Deploy OpenSupports to EC2
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: ${{ github.ref_name }}
+      
+      # Set environment-specific secrets based on the branch
+      DB_HOST: ${{ github.ref_name == 'main' && secrets.PROD_DB_HOST || github.ref_name == 'staging' && secrets.STAGING_DB_HOST || github.ref_name == 'develop' && secrets.DEV_DB_HOST }}
+      DB_USER: ${{ github.ref_name == 'main' && secrets.PROD_DB_USER || github.ref_name == 'staging' && secrets.STAGING_DB_USER || github.ref_name == 'develop' && secrets.DEV_DB_USER }}
+      DB_PASSWORD: ${{ github.ref_name == 'main' && secrets.PROD_DB_PASSWORD || github.ref_name == 'staging' && secrets.STAGING_DB_PASSWORD || github.ref_name == 'develop' && secrets.DEV_DB_PASSWORD }}
+      ADMIN_USER: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_USER || github.ref_name == 'staging' && secrets.STAGING_ADMIN_USER || github.ref_name == 'develop' && secrets.DEV_ADMIN_USER }}
+      ADMIN_PASSWORD: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_PASSWORD || github.ref_name == 'staging' && secrets.STAGING_ADMIN_PASSWORD || github.ref_name == 'develop' && secrets.DEV_ADMIN_PASSWORD }}
+      ADMIN_EMAIL: ${{ github.ref_name == 'main' && secrets.PROD_ADMIN_EMAIL || github.ref_name == 'staging' && secrets.STAGING_ADMIN_EMAIL || github.ref_name == 'develop' && secrets.DEV_ADMIN_EMAIL }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ github.ref_name == 'main' && secrets.PROD_EC2_KEY || github.ref_name == 'staging' && secrets.STAGING_EC2_KEY || github.ref_name == 'develop' && secrets.DEV_EC2_KEY }}
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ github.ref_name == 'main' && secrets.PROD_EC2_HOST || github.ref_name == 'staging' && secrets.STAGING_EC2_HOST || github.ref_name == 'develop' && secrets.DEV_EC2_HOST }}
+          EC2_USER: ${{ github.ref_name == 'main' && secrets.PROD_EC2_USER || github.ref_name == 'staging' && secrets.STAGING_EC2_USER || github.ref_name == 'develop' && secrets.DEV_EC2_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=no "${{ env.EC2_USER }}@${{ env.EC2_HOST }}" <<-EOF
+            # Update packages and install necessary software
+            sudo apt update -y && sudo apt install -y apache2 php php-mysql unzip curl
+            
+            # Start and enable Apache
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+            
+            # Create application directory and set permissions
+            sudo mkdir -p /var/www/opensupports
+            sudo chown -R ${EC2_USER}:${EC2_USER} /var/www/opensupports
+
+            # Download and unzip OpenSupports
+            curl -L https://github.com/opensupports/opensupports/releases/download/v4.11.0/opensupports_v4.11.0.zip -o opensupports.zip
+            unzip -oqq opensupports.zip -d /var/www/opensupports
+
+            # Set permissions for Apache
+            sudo chown -R www-data:www-data /var/www/opensupports
+            sudo chmod -R 755 /var/www/opensupports
+
+            # Configure config.php with database credentials
+            sudo mkdir -p /var/www/opensupports/server
+            sudo touch /var/www/opensupports/server/config.php
+            echo '<?php' | sudo tee $CONFIG_FILE
+            echo 'define("MYSQL_HOST", "${DB_HOST}");' | sudo tee -a $CONFIG_FILE
+            echo 'define("MYSQL_USER", "${DB_USER}");' | sudo tee -a $CONFIG_FILE
+            echo 'define("MYSQL_PASSWORD", "${DB_PASSWORD}");' | sudo tee -a $CONFIG_FILE
+            echo 'define("MYSQL_DATABASE", "${DB_NAME}");' | sudo tee -a $CONFIG_FILE
+
+            # Create and configure Apache virtual host
+            sudo tee /etc/apache2/sites-available/000-default.conf > /dev/null <<APACHECONF
+            <VirtualHost *:80>
+                ServerAdmin webmaster@localhost
+                DocumentRoot /var/www/html
+                Alias /opensupports /var/www/opensupports
+                <Directory /var/www/opensupports>
+                    Options Indexes FollowSymLinks
+                    AllowOverride All
+                    Require all granted
+                </Directory>
+                ErrorLog ${APACHE_LOG_DIR}/error.log
+                CustomLog ${APACHE_LOG_DIR}/access.log combined
+            </VirtualHost>
+          APACHECONF
+
+            # Enable Apache modules and restart service
+            sudo a2enmod alias rewrite
+            sudo systemctl restart apache2
+
+            # Initialize the database by calling /system/init-database endpoint
+            curl -X POST 'http://localhost/opensupports/system/init-database' -d "host=${DB_HOST}&user=${DB_USER}&password=${DB_PASSWORD}&database=${DB_NAME}"
+
+            # Set default system settings
+            curl -X POST 'http://localhost/opensupports/system/init-settings' -d 'site_name=OpenSupports&default_language=en'
+
+            # Initialize the admin account
+            curl -X POST 'http://localhost/opensupports/system/init-admin' -d "username=${ADMIN_USER}&password=${ADMIN_PASSWORD}&email=${ADMIN_EMAIL}"
+          EOF
+
+          # Run deployment commands on EC2 instance
+          ssh -o StrictHostKeyChecking=no "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" "$REMOTE_COMMANDS"
