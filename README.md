@@ -39,4 +39,5 @@ The GitHub Actions workflow (`.github/workflows/deployment.yml`) automates deplo
   - Configure Cloudwatch agent to push the addintonal metrics & app logs to cloudwatch.
   - Create autoscaling based on metrics or schedule to meet the traffic requirements.
   - Add WAF infront of ALB for additonal security.
+  - Create another workflow to deploy the infrastructure from Cloudformation template for multiple environments
 
