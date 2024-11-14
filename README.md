@@ -3,35 +3,40 @@
 This project sets up a multi-environment deployment for the OpenSupports application using AWS CloudFormation and GitHub Actions.
 
 ## Prerequisites
-1. AWS account with IAM roles set up for CI/CD.
-2. EC2 Key Pair (`your-key-pair.pem`) configured for SSH access.
-3. GitHub repository forked from [OpenSupports](https://github.com/opensupports/opensupports).
+1. AWS account with necessary permissions to create the resources
 
 ## CloudFormation Templates
 
-- **main_infrastructure.yml**: Sets up VPC, EC2, RDS, S3, Security Groups.
-- **cloudwatch_logs.yml**: Configures CloudWatch logging.
+- **infra/infrastructure.yml**: Use this template via CLI or Console to deploy multiple environments. Change the necessary parameters. After the stack is deployed the Key Pair for EC2 instance will be stored in the parameter store.
+
+- Spot instances will be used by default. For prod environment update the necessary parameter value.
+
+- Instance will be launched with public IP address and HTTP access from everywhere.
 
 ## CI/CD Pipeline
 
 The GitHub Actions workflow (`.github/workflows/deployment.yml`) automates deployment to AWS.
 
-- **Branches**:
+- **Update the Secrets for each environment in the repo settings**
+- **Deployment strategy based  on Branches**
   - `develop`: Deploys to development.
+  - `staging`: Deploys to staging
   - `main`: Deploys to production.
+
 
 ### Pipeline Steps
 
-1. **Build**: Validates application setup.
-2. **Deploy to AWS**: Deploys EC2, RDS, S3, and other resources via CloudFormation.
-3. **Run Application**: Sets up OpenSupports on EC2 instance.
+1. Based on the branch connects to each environment's EC2 via SSH
+2. Commands are passed via SSH to download the opensupports package, necessary dependencies, and install it. 
+3. Uses init commandsto configure OpenSupports.
 
-## Best Practices
+## Recommended Next Steps
 
-- **Security**: IAM roles, Security Groups with least privileges.
-- **Cost Optimization**: Use Auto Scaling for production, Spot Instances for non-production.
+  - Move the instance from public subnet to private subnet.
+  - Add ALB and allow traffic to instance from ALB only.
+  - Remove SSH from EC2 & Use SSM only for connecting.
+  - Once SSH is removed, update the `.github/workflows/deployment.yml`. Use AWS CodeDeploy to deploy the app.
+  - Configure Cloudwatch agent to push the addintonal metrics & app logs to cloudwatch.
+  - Create autoscaling based on metrics or schedule to meet the traffic requirements.
+  - Add WAF infront of ALB for additonal security.
 
-## Usage
-
-- Push to `develop` branch to deploy to the development environment.
-- Push to `main` branch to deploy to production.

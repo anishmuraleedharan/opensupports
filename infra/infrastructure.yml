@@ -107,12 +107,17 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref VPC
-      GroupDescription: "Allow HTTP access to EC2"
+      GroupDescription: "Allow HTTP & SSH access to EC2"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
 
   EC2InstanceRole:
     Type: AWS::IAM::Role
